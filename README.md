@@ -11,7 +11,7 @@ This setup deploys:
 Apply all manifests:
 
 ```bash
-kubectl apply -f .
+kubectl apply -f namespace.yml -f spark  -f jupyter.yml
 ```
 
 Verify the pods:
@@ -92,5 +92,6 @@ kubectl logs -n spark deploy/spark-connect -f
 Remove all resources:
 
 ```bash
-kubectl delete -f .
+kubectl delete -f spark  -f jupyter.yml -f namespace.yml
+
 ```

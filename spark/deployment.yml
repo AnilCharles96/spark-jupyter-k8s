@@ -1,28 +1,3 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: spark
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: spark
-  namespace: spark
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: spark-role
-  namespace: spark
-subjects:
-  - kind: ServiceAccount
-    name: spark
-    namespace: spark
-roleRef:
-  kind: ClusterRole
-  name: edit
-  apiGroup: rbac.authorization.k8s.io
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,15 +6,20 @@ metadata:
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: spark-connect }
+    matchLabels:
+      app: spark-connect
   template:
     metadata:
-      labels: { app: spark-connect }
+      labels:
+        app: spark-connect
     spec:
       serviceAccountName: spark
       volumes:
         - name: extra-jars
           emptyDir: {}
+        - name: pod-template-vol
+          configMap:
+            name: spark-pod-template
       initContainers:
         - name: fetch-connect-jar
           image: curlimages/curl:latest
@@ -58,16 +38,20 @@ spec:
             - name: HOME
               value: "/tmp"
           ports:
-            - { containerPort: 15002 }
-            - { containerPort: 4040 }
+            - containerPort: 15002
+            - containerPort: 4040
           volumeMounts:
             - name: extra-jars
               mountPath: /opt/spark/jars-extra
+            - name: pod-template-vol
+              mountPath: /opt/spark/templates
+              readOnly: true
           command: ["/bin/sh", "-c"]
           args:
             - |
               /opt/spark/sbin/start-connect-server.sh \
                 --jars /opt/spark/jars-extra/spark-connect_2.13-4.1.2.jar \
+                --conf spark.kubernetes.executor.podTemplateFile=/opt/spark/templates/pod-template.yaml \
                 --master k8s://https://kubernetes.default.svc:443 \
                 --conf spark.kubernetes.namespace=spark \
                 --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark \
@@ -79,17 +63,5 @@ spec:
                 --conf spark.dynamicAllocation.executorIdleTimeout=30s \
                 --conf spark.dynamicAllocation.cachedExecutorIdleTimeout=50s \
                 --conf spark.dynamicAllocation.minExecutors=0 \
-                --conf spark.dynamicAllocation.maxExecutors=4 &&
+                --conf spark.dynamicAllocation.maxExecutors=8 &&
               sleep infinity
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: spark-connect
-  namespace: spark
-spec:
-  clusterIP: None
-  selector: { app: spark-connect }
-  ports:
-    - { name: grpc, port: 15002, targetPort: 15002 }
-    - { name: ui,   port: 4040,  targetPort: 4040 }

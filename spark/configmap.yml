@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-pod-template
+  namespace: spark
+data:
+  pod-template.yaml: |
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      labels:
+        spark-role: executor
+    spec:
+      affinity:
+        podAntiAffinity:
+          # Use "required" to force the scheduler to strictly obey the rule
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: spark-role
+                    operator: In
+                    values: ["executor"]
+              topologyKey: "kubernetes.io/hostname"

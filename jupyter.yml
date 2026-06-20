@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jupyter
+  namespace: spark
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jupyter
+  template:
+    metadata:
+      labels:
+        app: jupyter
+    spec:
+      containers:
+        - name: jupyter
+          image: quay.io/jupyter/base-notebook:latest
+          ports:
+            - containerPort: 8888
+          env:
+            - name: JUPYTER_TOKEN
+              value: "letmein"
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              pip install --no-cache-dir 'pyspark[connect]==4.1.2' && \
+              exec start-notebook.py
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jupyter-svc
+  namespace: spark
+spec:
+  selector:
+    app: jupyter
+  ports:
+    - name: http
+      port: 8888
+      targetPort: 8888

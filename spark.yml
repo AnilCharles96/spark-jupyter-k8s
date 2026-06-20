@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spark
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spark
+  namespace: spark
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spark-role
+  namespace: spark
+subjects:
+  - kind: ServiceAccount
+    name: spark
+    namespace: spark
+roleRef:
+  kind: ClusterRole
+  name: edit
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-connect
+  namespace: spark
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: spark-connect }
+  template:
+    metadata:
+      labels: { app: spark-connect }
+    spec:
+      serviceAccountName: spark
+      volumes:
+        - name: extra-jars
+          emptyDir: {}
+      initContainers:
+        - name: fetch-connect-jar
+          image: curlimages/curl:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              curl -L -o /jars/spark-connect_2.13-4.1.2.jar \
+                https://repo1.maven.org/maven2/org/apache/spark/spark-connect_2.13/4.1.2/spark-connect_2.13-4.1.2.jar
+          volumeMounts:
+            - name: extra-jars
+              mountPath: /jars
+      containers:
+        - name: spark-connect
+          image: apache/spark:4.1.2
+          env:
+            - name: HOME
+              value: "/tmp"
+          ports:
+            - { containerPort: 15002 }
+            - { containerPort: 4040 }
+          volumeMounts:
+            - name: extra-jars
+              mountPath: /opt/spark/jars-extra
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              /opt/spark/sbin/start-connect-server.sh \
+                --jars /opt/spark/jars-extra/spark-connect_2.13-4.1.2.jar \
+                --master k8s://https://kubernetes.default.svc:443 \
+                --conf spark.kubernetes.namespace=spark \
+                --conf spark.kubernetes.authenticate.driver.serviceAccountName=spark \
+                --conf spark.kubernetes.container.image=apache/spark:4.1.2 \
+                --conf spark.driver.host=spark-connect.spark.svc.cluster.local \
+                --conf spark.dynamicAllocation.enabled=true \
+                --conf spark.dynamicAllocation.shuffleTracking.enabled=true \
+                --conf spark.dynamicAllocation.shuffleTracking.timeout=60s \
+                --conf spark.dynamicAllocation.executorIdleTimeout=30s \
+                --conf spark.dynamicAllocation.minExecutors=0 \
+                --conf spark.dynamicAllocation.maxExecutors=8 &&
+              sleep infinity
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-connect
+  namespace: spark
+spec:
+  clusterIP: None
+  selector: { app: spark-connect }
+  ports:
+    - { name: grpc, port: 15002, targetPort: 15002 }
+    - { name: ui,   port: 4040,  targetPort: 4040 }

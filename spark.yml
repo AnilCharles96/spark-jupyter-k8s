@@ -75,10 +75,11 @@ spec:
                 --conf spark.driver.host=spark-connect.spark.svc.cluster.local \
                 --conf spark.dynamicAllocation.enabled=true \
                 --conf spark.dynamicAllocation.shuffleTracking.enabled=true \
-                --conf spark.dynamicAllocation.shuffleTracking.timeout=60s \
+                --conf spark.dynamicAllocation.shuffleTracking.timeout=30s \
                 --conf spark.dynamicAllocation.executorIdleTimeout=30s \
+                --conf spark.dynamicAllocation.cachedExecutorIdleTimeout=50s \
                 --conf spark.dynamicAllocation.minExecutors=0 \
-                --conf spark.dynamicAllocation.maxExecutors=8 &&
+                --conf spark.dynamicAllocation.maxExecutors=4 &&
               sleep infinity
 ---
 apiVersion: v1

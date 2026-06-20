@@ -51,7 +51,7 @@ letmein
 
 ## Run Spark Jobs
 
-The included notebook (`Untitled.ipynb`) contains example Spark Connect code.
+The included notebook (`test.ipynb`) contains example Spark Connect code.
 
 Open the notebook in Jupyter and execute the cells.
 
